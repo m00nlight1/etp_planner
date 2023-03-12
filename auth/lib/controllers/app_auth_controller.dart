@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:auth/models/response_app_model.dart';
 import 'package:auth/models/user.dart';
 import 'package:conduit/conduit.dart';
+import 'package:jaguar_jwt/jaguar_jwt.dart';
 
 class AppAuthController extends ResourceController {
   final ManagedContext managedContext;
@@ -38,7 +39,6 @@ class AppAuthController extends ResourceController {
 
     final salt = generateRandomSalt();
     final hashPassword = generatePasswordHash(user.password!, salt);
-    final User fetchedUser = User();
 
     try {
       late final int id;
@@ -51,32 +51,40 @@ class AppAuthController extends ResourceController {
 
         final createdUser = await qCreateUser.insert();
         id = createdUser.id!;
-        // _updateTokens(id, transaction);
+        _updateTokens(id, transaction);
       });
-    } catch (e) {}
+
+      final userData = await managedContext.fetchObjectWithID<User>(id);
+
+      return Response.ok(ResponseAppModel(
+          data: userData?.backing.contents, message: "Успешная регистрация"));
+    } on QueryException catch (error) {
+      return Response.serverError(
+          body: ResponseAppModel(message: error.message));
+    }
   }
 
-  // void _updateTokens(int id, ManagedContext transaction) async {
-  //   final Map<String, String> tokens = _getTokens(id);
-  //   final qUpdateTokens = Query<User>(transaction)
-  //     ..where((x) => x.id).equalTo(id)
-  //     ..values.accessToken = tokens['access']
-  //     ..values.refreshToken = tokens['refresh'];
+  void _updateTokens(int id, ManagedContext transaction) async {
+    final Map<String, String> tokens = _getTokens(id);
+    final qUpdateTokens = Query<User>(transaction)
+      ..where((x) => x.id).equalTo(id)
+      ..values.accessToken = tokens['access']
+      ..values.refreshToken = tokens['refresh'];
 
-  //   await qUpdateTokens.updateOne();
-  // }
+    await qUpdateTokens.updateOne();
+  }
 
-  // Map<String, String> _getTokens(int id) {
-  //   final key = Platform.environment['SECRET_KEY'] ?? 'SECRET_KEY';
-  //   final accessClaimSet =
-  //       JwtClaim(maxAge: const Duration(hours: 1), otherClaims: {'id': id});
-  //   final refreshClaimSet = JwtClaim(otherClaims: {'id': id});
-  //   final tokens = <String, String>{};
-  //   tokens['access'] = issueJwtHS256(accessClaimSet, key);
-  //   tokens['refresh'] = issueJwtHS256(refreshClaimSet, key);
+  Map<String, String> _getTokens(int id) {
+    final key = Platform.environment['SECRET_KEY'] ?? 'SECRET_KEY';
+    final accessClaimSet =
+        JwtClaim(maxAge: const Duration(hours: 1), otherClaims: {'id': id});
+    final refreshClaimSet = JwtClaim(otherClaims: {'id': id});
+    final tokens = <String, String>{};
+    tokens['access'] = issueJwtHS256(accessClaimSet, key);
+    tokens['refresh'] = issueJwtHS256(refreshClaimSet, key);
 
-  //   return tokens;
-  // }
+    return tokens;
+  }
 
   @Operation.post("refresh")
   Future<Response> refreshToken(
