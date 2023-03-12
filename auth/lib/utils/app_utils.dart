@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:conduit/conduit.dart';
 import 'package:jaguar_jwt/jaguar_jwt.dart';
 
 abstract class AppUtils {
@@ -15,14 +16,14 @@ abstract class AppUtils {
     }
   }
 
-  // static int getIdFromHeader(String header) {
-  //   try {
-  //     final token = const AuthorizationBearerParser().parse(header);
-  //     final id = getIdFromToken(token ?? "");
+  static int getIdFromHeader(String header) {
+    try {
+      final token = const AuthorizationBearerParser().parse(header);
+      final id = getIdFromToken(token ?? "");
 
-  //     return id;
-  //   } catch (e) {
-  //     rethrow;
-  //   }
-  // }
+      return id;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
