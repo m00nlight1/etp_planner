@@ -17,16 +17,35 @@ class AppAuthController extends ResourceController {
           body: ResponseAppModel(message: "Поля Email и Password обязательны"));
     }
 
-    final User fetchedUser = User();
+    try {
+      final qFindUser = Query<User>(managedContext)
+        ..where((x) => x.email).equalTo(user.email)
+        ..returningProperties((x) => [x.id, x.salt, x.hashPassword]);
 
-    return Response.ok(
-      ResponseAppModel(data: {
-        "id": fetchedUser.id,
-        "refreshToken": fetchedUser.refreshToken,
-        "accessToken": fetchedUser.accessToken
-      }, message: "Успешная авторизация")
-          .toJson(),
-    );
+      final findUser = await qFindUser.fetchOne();
+
+      if (findUser == null) {
+        throw QueryException.input('Пользователь не найден', []);
+      }
+
+      final requestHashPassword =
+          generatePasswordHash(user.password ?? '', findUser.salt ?? '');
+
+      if (requestHashPassword == findUser.hashPassword) {
+        _updateTokens(findUser.id ?? -1, managedContext);
+
+        final newUser =
+            await managedContext.fetchObjectWithID<User>(findUser.id);
+
+        return Response.ok(ResponseAppModel(
+            data: newUser!.backing.contents, message: 'Успешная авторизация'));
+      } else {
+        throw QueryException.input('Неверный пароль', []);
+      }
+    } on QueryException catch (error) {
+      return Response.serverError(
+          body: ResponseAppModel(message: error.message));
+    }
   }
 
   @Operation.put()
