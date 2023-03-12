@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:auth/models/response_app_model.dart';
 import 'package:auth/models/user.dart';
+import 'package:auth/utils/app_utils.dart';
 import 'package:conduit/conduit.dart';
 import 'package:jaguar_jwt/jaguar_jwt.dart';
 
@@ -83,6 +84,25 @@ class AppAuthController extends ResourceController {
     }
   }
 
+  @Operation.post("refresh")
+  Future<Response> refreshToken(
+      @Bind.path("refresh") String refreshToken) async {
+    try {
+      final id = AppUtils.getIdFromToken(refreshToken);
+      final user = await managedContext.fetchObjectWithID<User>(id);
+      if (user!.refreshToken != refreshToken) {
+        return Response.unauthorized(body: 'Токен не валидный');
+      }
+
+      _updateTokens(id, managedContext);
+
+      return Response.ok(ResponseAppModel(
+          data: user.backing.contents, message: 'Успешное обновление токенов'));
+    } catch (error) {
+      return Response.serverError(body: ResponseAppModel(message: error.toString()));
+    }
+  }
+
   void _updateTokens(int id, ManagedContext transaction) async {
     final Map<String, String> tokens = _getTokens(id);
     final qUpdateTokens = Query<User>(transaction)
@@ -103,20 +123,5 @@ class AppAuthController extends ResourceController {
     tokens['refresh'] = issueJwtHS256(refreshClaimSet, key);
 
     return tokens;
-  }
-
-  @Operation.post("refresh")
-  Future<Response> refreshToken(
-      @Bind.path("refresh") String refreshToken) async {
-    final User fetchedUser = User();
-
-    return Response.ok(
-      ResponseAppModel(data: {
-        "id": fetchedUser.id,
-        "refreshToken": fetchedUser.refreshToken,
-        "accessToken": fetchedUser.accessToken
-      }, message: "Успешное обновление токенов")
-          .toJson(),
-    );
   }
 }
