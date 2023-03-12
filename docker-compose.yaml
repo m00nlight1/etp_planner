@@ -1,6 +1,25 @@
 version: '3.5'
 
 services:
+
+  auth:
+    build: ./auth
+    container_name: auth
+    ports:
+      - 6100:6100
+    environment:
+      - SECRET_KEY=SECRET_KEY
+      - PORT=6100
+      - DB_USERNAME=admin
+      - DB_PASSWORD=root
+      - DB_HOST=db_auth
+      - DB_PORT=5432
+      - DB_NAME=postgres
+    depends_on:
+      - db_auth
+    networks:
+      - internal_net
+
   db_auth:
     container_name: db_auth
     ports:
@@ -9,8 +28,18 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_USER=admin
     image: postgres:14.3-alpine
+    command:
+      - "postgres"
+      - "-c"
+      - "port=5432"
     volumes:
       - db_auth_vol:/var/lib/postgresql/data/
+    networks:
+      - internal_net
+
 volumes:
   db_auth_vol: {}
 
+networks:
+  internal_net:
+    driver: bridge
