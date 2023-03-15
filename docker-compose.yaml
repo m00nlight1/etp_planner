@@ -10,7 +10,7 @@ services:
       - DB_USERNAME=admin
       - DB_PASSWORD=root
       - DB_HOST=db_auth
-      - DB_PORT=5432
+      - DB_PORT=6101
       - DB_NAME=postgres
     depends_on:
       - db_auth
@@ -20,7 +20,7 @@ services:
   db_auth:
     container_name: db_auth
     ports:
-      - "5432:5432"
+      - "6101:6101"
     environment:
       - POSTGRES_PASSWORD=root
       - POSTGRES_USER=admin
@@ -28,7 +28,7 @@ services:
     command:
       - "postgres"
       - "-c"
-      - "port=5432"
+      - "port=6101"
     volumes:
       - db_auth_vol:/var/lib/postgresql/data/
     networks:
@@ -40,7 +40,7 @@ services:
     networks:
       - internal_net
     ports:
-      - 81:81
+      - 81:80
     depends_on:
       - auth
     volumes:
