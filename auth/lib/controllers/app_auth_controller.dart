@@ -33,13 +33,11 @@ class AppAuthController extends ResourceController {
           generatePasswordHash(user.password ?? '', findUser.salt ?? '');
 
       if (requestHashPassword == findUser.hashPassword) {
-        _updateTokens(findUser.id ?? -1, managedContext);
-
+        await _updateTokens(findUser.id ?? -1, managedContext);
         final newUser =
             await managedContext.fetchObjectWithID<User>(findUser.id);
-
         return AppResponse.ok(
-            body: newUser!.backing.contents, message: 'Успешная авторизация');
+            body: newUser?.backing.contents, message: "Успешная авторизация");
       } else {
         throw QueryException.input('Неверный пароль', []);
       }
@@ -69,8 +67,8 @@ class AppAuthController extends ResourceController {
           ..values.hashPassword = hashPassword;
 
         final createdUser = await qCreateUser.insert();
-        id = createdUser.id!;
-        _updateTokens(id, transaction);
+        id = createdUser.asMap()["id"];
+        await _updateTokens(id, transaction);
       });
 
       final userData = await managedContext.fetchObjectWithID<User>(id);
@@ -104,25 +102,23 @@ class AppAuthController extends ResourceController {
     }
   }
 
-  void _updateTokens(int id, ManagedContext transaction) async {
-    final Map<String, String> tokens = _getTokens(id);
+  Future<void> _updateTokens(int id, ManagedContext transaction) async {
+    final Map<String, dynamic> tokens = _getTokens(id);
     final qUpdateTokens = Query<User>(transaction)
-      ..where((x) => x.id).equalTo(id)
-      ..values.accessToken = tokens['access']
-      ..values.refreshToken = tokens['refresh'];
-
+      ..where((user) => user.id).equalTo(id)
+      ..values.accessToken = tokens["access"]
+      ..values.refreshToken = tokens["refresh"];
     await qUpdateTokens.updateOne();
   }
 
-  Map<String, String> _getTokens(int id) {
+  Map<String, dynamic> _getTokens(int id) {
     final key = AppEnv.secretKey;
     final accessClaimSet =
-        JwtClaim(maxAge: const Duration(hours: 1), otherClaims: {'id': id});
-    final refreshClaimSet = JwtClaim(otherClaims: {'id': id});
-    final tokens = <String, String>{};
-    tokens['access'] = issueJwtHS256(accessClaimSet, key);
-    tokens['refresh'] = issueJwtHS256(refreshClaimSet, key);
-
+        JwtClaim(maxAge: Duration(hours: 1), otherClaims: {"id": id});
+    final refreshClaimSet = JwtClaim(otherClaims: {"id": id});
+    final tokens = <String, dynamic>{};
+    tokens["access"] = issueJwtHS256(accessClaimSet, key);
+    tokens["refresh"] = issueJwtHS256(refreshClaimSet, key);
     return tokens;
   }
 }
